@@ -18,7 +18,8 @@ class OrderViewModel : ViewModel() {
         )
     )
     val items: StateFlow<List<Item>> = _items
-
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading
     private val _apiResponse = MutableStateFlow<ApiResponse?>(null)
     val apiResponse: StateFlow<ApiResponse?> = _apiResponse
 
@@ -40,10 +41,12 @@ class OrderViewModel : ViewModel() {
 
     fun enviarOrden() {
         viewModelScope.launch {
-            // FILTRADO CLAVE: Solo enviamos a la API los productos que el usuario incrementó (> 0)
+            // 2. ACTIVAR CARGANDO: Al iniciar la función pasamos el estado a true
+            _isLoading.value = true
+
             val itemsSeleccionados = _items.value.filter { it.cantidad > 0 }
 
-            // Mapeamos solo los seleccionados al formato de la API
+            // Mapeamos los ítems para la API
             val apiItems = itemsSeleccionados.map {
                 ApiOrderItem(code = it.codigo, name = it.nombre, quantity = it.cantidad)
             }
@@ -66,6 +69,10 @@ class OrderViewModel : ViewModel() {
                     status = "CONNECTION_ERROR",
                     mensaje = "No se pudo conectar con el servidor."
                 )
+            } finally {
+                // 3. DESACTIVAR CARGANDO: El bloque 'finally' garantiza que, pase lo que pase
+                // (éxito, error de la API o excepción de red), el estado regrese a false.
+                _isLoading.value = false
             }
         }
     }

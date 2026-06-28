@@ -22,14 +22,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -39,10 +38,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-// NOTA: Si el nombre de tu paquete/tema es diferente,
-// Android Studio te sugerirá corregir esta línea automáticamente de ser necesario:
 import com.example.ordenesapp.ui.theme.OrdenesAppTheme
 
 class MainActivity : ComponentActivity() {
@@ -68,6 +66,7 @@ class MainActivity : ComponentActivity() {
 fun OrderScreen(viewModel: OrderViewModel) {
     val items by viewModel.items.collectAsState()
     val apiResponse by viewModel.apiResponse.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     Scaffold(
         topBar = {
@@ -99,21 +98,35 @@ fun OrderScreen(viewModel: OrderViewModel) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Botón inferior para enviar la orden
+            // Botón inferior para enviar la orden con indicador de carga
             Button(
                 onClick = { viewModel.enviarOrden() },
+                enabled = !isLoading, // Se deshabilita si está cargando
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
             ) {
-                Text("Enviar Orden", fontSize = 18.sp)
+                if (isLoading) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.5.dp
+                        )
+                        Text("Enviando orden...", fontSize = 16.sp)
+                    }
+                } else {
+                    Text("Enviar Orden", fontSize = 18.sp)
+                }
             }
         }
     }
 
     // Ventana flotante en el centro (Dialog) que formatea la respuesta de la API
     apiResponse?.let { response ->
-        // Determinamos de forma dinámica si la respuesta es exitosa o un error
         val isSuccess = response.status == "SUCCESS" || response.status == "RECEIVED"
 
         AlertDialog(
@@ -121,15 +134,13 @@ fun OrderScreen(viewModel: OrderViewModel) {
             title = {
                 Text(
                     text = if (isSuccess) "¡Órden Procesada!" else "Error en la Orden",
-                    color = if (isSuccess) Color(0xFF2E7D32) else Color.Red, // Verde para éxito, Rojo para error
+                    color = if (isSuccess) Color(0xFF2E7D32) else Color.Red,
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp
                 )
             },
             text = {
                 Column {
-                    // Hemos removido la línea técnica 'Text(text = "Status: ...")'
-                    // para mostrar directamente el mensaje amigable al usuario
                     Text(
                         text = response.mensaje,
                         fontSize = 16.sp,
@@ -150,6 +161,7 @@ fun OrderScreen(viewModel: OrderViewModel) {
         )
     }
 }
+
 @Composable
 fun ItemRow(item: Item, onIncrement: () -> Unit, onDecrement: () -> Unit) {
     Card(
@@ -187,7 +199,7 @@ fun ItemRow(item: Item, onIncrement: () -> Unit, onDecrement: () -> Unit) {
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.widthIn(min = 24.dp),
-                    textAlign = TextAlign.Center // Corrección aplicada
+                    textAlign = TextAlign.Center
                 )
 
                 FilledTonalButton(
