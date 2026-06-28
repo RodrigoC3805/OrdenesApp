@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -112,25 +113,38 @@ fun OrderScreen(viewModel: OrderViewModel) {
 
     // Ventana flotante en el centro (Dialog) que formatea la respuesta de la API
     apiResponse?.let { response ->
+        // Determinamos de forma dinámica si la respuesta es exitosa o un error
+        val isSuccess = response.status == "SUCCESS" || response.status == "RECEIVED"
+
         AlertDialog(
             onDismissRequest = { viewModel.dismissDialog() },
             title = {
                 Text(
-                    text = if (response.status == "SUCCESS") "¡Éxito!" else "Error en la Orden",
-                    color = if (response.status == "SUCCESS") Color(0xFF2E7D32) else Color.Red,
-                    fontWeight = FontWeight.Bold
+                    text = if (isSuccess) "¡Órden Procesada!" else "Error en la Orden",
+                    color = if (isSuccess) Color(0xFF2E7D32) else Color.Red, // Verde para éxito, Rojo para error
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
                 )
             },
             text = {
                 Column {
-                    Text(text = "Status: ${response.status}", fontWeight = FontWeight.SemiBold)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = response.mensaje)
+                    // Hemos removido la línea técnica 'Text(text = "Status: ...")'
+                    // para mostrar directamente el mensaje amigable al usuario
+                    Text(
+                        text = response.mensaje,
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.dismissDialog() }) {
-                    Text("Aceptar")
+                Button(
+                    onClick = { viewModel.dismissDialog() },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isSuccess) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Aceptar", color = Color.White)
                 }
             }
         )

@@ -2,14 +2,13 @@ package com.example.ordenesapp
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.delay
+import com.google.gson.Gson
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class OrderViewModel : ViewModel() {
 
-    // Lista de productos hardcodeada
     private val _items = MutableStateFlow(
         listOf(
             Item("PROD001", "Laptop Gamer", 0),
@@ -20,54 +19,65 @@ class OrderViewModel : ViewModel() {
     )
     val items: StateFlow<List<Item>> = _items
 
-    // Estado para controlar el diálogo de respuesta de la API
     private val _apiResponse = MutableStateFlow<ApiResponse?>(null)
     val apiResponse: StateFlow<ApiResponse?> = _apiResponse
 
-    // Incrementa la cantidad de un ítem
     fun incrementQuantity(codigo: String) {
         _items.value = _items.value.map {
             if (it.codigo == codigo) it.copy(cantidad = it.cantidad + 1) else it
         }
     }
 
-    // Decrementa la cantidad de un ítem (mínimo 0)
     fun decrementQuantity(codigo: String) {
         _items.value = _items.value.map {
             if (it.codigo == codigo && it.cantidad > 0) it.copy(cantidad = it.cantidad - 1) else it
         }
     }
 
-    // Limpia el estado de la respuesta para cerrar el diálogo
     fun dismissDialog() {
         _apiResponse.value = null
     }
 
-    // Simulación del "empaquetado" y envío a la API placeholder
     fun enviarOrden() {
         viewModelScope.launch {
-            // Filtramos solo los ítems que tienen cantidad mayor a 0
+            // FILTRADO CLAVE: Solo enviamos a la API los productos que el usuario incrementó (> 0)
             val itemsSeleccionados = _items.value.filter { it.cantidad > 0 }
 
-            // Validación local antes de simular el envío
-            if (itemsSeleccionados.isEmpty()) {
-                _apiResponse.value = ApiResponse(
-                    status = "INVALID",
-                    mensaje = "La orden está vacía. Debes seleccionar al menos un ítem."
-                )
-                return@launch
+            // Mapeamos solo los seleccionados al formato de la API
+            val apiItems = itemsSeleccionados.map {
+                ApiOrderItem(code = it.codigo, name = it.nombre, quantity = it.cantidad)
             }
+            val requestPayload = OrderRequest(items = apiItems)
 
-            // --- PLACEHOLDER DE API ---
-            // Aquí se empaquetarían los datos (ej: JSON) y se haría un POST HTTP
-            delay(1500) // Simula la latencia de red de 1.5 segundos
+            try {
+                val response = OrderApiService.instance.createOrder(requestPayload)
+                if (response.isSuccessful && response.body() != null) {
+                    _apiResponse.value = response.body()
+                } else {
+                    val errorBodyString = response.errorBody()?.string()
+                    val errorData = parseFastApiError(errorBodyString)
+                    _apiResponse.value = ApiResponse(
+                        status = errorData?.status ?: "ERROR",
+                        mensaje = errorData?.message ?: "Hubo un error al procesar la orden."
+                    )
+                }
+            } catch (e: Exception) {
+                _apiResponse.value = ApiResponse(
+                    status = "CONNECTION_ERROR",
+                    mensaje = "No se pudo conectar con el servidor."
+                )
+            }
+        }
+    }
 
-            // Simulación de respuesta exitosa
-            val totalItems = itemsSeleccionados.sumOf { it.cantidad }
-            _apiResponse.value = ApiResponse(
-                status = "SUCCESS",
-                mensaje = "Orden recibida correctamente. Procesados $totalItems ítems en total."
-            )
+    // Función auxiliar para procesar el JSON del 'detail' devuelto por FastAPI
+    private fun parseFastApiError(errorBody: String?): FastApiErrorDetail? {
+        return try {
+            val gson = Gson()
+            val parsed = gson.fromJson(errorBody, FastApiErrorResponse::class.java)
+            parsed.detail
+        } catch (e: Exception) {
+            null
         }
     }
 }

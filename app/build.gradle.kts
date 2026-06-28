@@ -60,5 +60,6 @@ dependencies {
 
     // Para el ViewModel
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-
+    implementation(libs.retrofit.core)
+    implementation(libs.retrofit.converter.gson)
 }
